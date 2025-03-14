@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 User=root
-WorkingDirectory=/usr/share/rpi-metrics/Server
-Environment="PATH=/usr/share/rpi-metrics/Server/venv/bin"
-ExecStart=/usr/share/rpi-metrics/Server/venv/bin/python /usr/share/rpi-metrics/Server/shell/shell_server.py
+WorkingDirectory=/usr/share/rpi-web-shell
+Environment="PATH=/usr/share/rpi-web-shell/venv/bin"
+ExecStart=/usr/share/rpi-web-shell/venv/bin/python /usr/share/rpi-web-shell/shell_server.py
 Restart=always
 RestartSec=5
 StandardOutput=journal
