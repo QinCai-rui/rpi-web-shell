@@ -1,0 +1,259 @@
+body {
+    font-family: 'Courier New', monospace;
+    background-color: #1e1e1e;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.terminal-container {
+    flex: 1;
+    padding: 10px;
+    background-color: #2d2d2d;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-bar {
+    display: flex;
+    background-color: #333333;
+    overflow-x: auto;
+    margin-bottom: 5px;
+    height: 35px;
+    flex-shrink: 0;
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    background-color: #444444;
+    color: #cccccc;
+    padding: 5px 15px;
+    margin-right: 3px;
+    cursor: pointer;
+    border-top: 1px solid #555;
+    border-right: 1px solid #555;
+    border-left: 1px solid #555;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    user-select: none;
+    max-width: 160px;
+    min-width: 100px;
+    position: relative;
+}
+
+.tab.active {
+    background-color: #2d2d2d;
+    color: white;
+}
+
+.tab-title {
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab-close {
+    margin-left: 8px;
+    width: 14px;
+    height: 14px;
+    text-align: center;
+    line-height: 14px;
+    border-radius: 50%;
+}
+
+.tab-close:hover {
+    background-color: #ff6b6b;
+    color: white;
+}
+
+.new-tab-button {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    background-color: #333333;
+    color: #cccccc;
+    cursor: pointer;
+    height: 24px;
+}
+
+.new-tab-button:hover {
+    background-color: #555555;
+}
+
+.terminals {
+    position: relative;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.terminal-instance {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+
+.terminal-instance.active {
+    display: block;
+}
+
+.terminal {
+    width: 100%;
+    height: 100%;
+}
+
+.api-key-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #3c3c3c;
+    padding: 20px;
+    border-radius: 5px;
+    width: 300px;
+    color: white;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 8px;
+    margin: 10px 0;
+    background-color: #2d2d2d;
+    border: 1px solid #555;
+    color: white;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+button {
+    padding: 8px 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.logout-btn {
+    background-color: #f44336;
+}
+
+.logout-btn:hover {
+    background-color: #d32f2f;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.status-connected {
+    background-color: #4CAF50;
+}
+
+.status-disconnected {
+    background-color: #f44336;
+}
+
+.status-text {
+    font-size: 12px;
+    margin-right: 10px;
+}
+
+footer {
+    background-color: #333;
+    color: #ccc;
+    text-align: center;
+    padding: 10px;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+footer .left {
+    text-align: left;
+}
+
+footer .right {
+    text-align: right;
+}
+
+footer a {
+    color: #4CAF50;
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+.tab-context-menu {
+    position: absolute;
+    background: #3c3c3c;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 5px 0;
+    z-index: 1000;
+    display: none;
+}
+
+.tab-context-menu-item {
+    padding: 8px 16px;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.tab-context-menu-item:hover {
+    background-color: #555;
+}
+
+.tab-context-menu.visible {
+    display: block;
+}
