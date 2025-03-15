@@ -3,6 +3,12 @@
 # RPi Web Shell Installer
 # This script installs and configures the RPi Web Shell application
 
+####################################################################################################
+# Usage: 
+# wget https://raw.githubusercontent.com/QinCai-rui/rpi-web-shell/refs/heads/main/quick-installer.sh
+# chmod +x quick-installer.sh
+# export USERNAME=$(whoami) && sudo ./quick-installer.sh 
+####################################################################################################
 set -e
 
 # ANSI color codes
@@ -26,7 +32,7 @@ fi
 INSTALL_DIR="/usr/share/rpi-web-shell"
 SERVICE_FILE="/etc/systemd/system/rpi-shell.service"
 PORT=5001
-USER=$(whoami)
+USER=$USERNAME
 
 print_green "========================================"
 print_green "      RPi Web Shell Installer"
