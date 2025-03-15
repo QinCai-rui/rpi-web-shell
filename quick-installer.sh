@@ -6,7 +6,7 @@
 #########################################################################################################################################################
 # Usage: 
 # wget https://raw.githubusercontent.com/QinCai-rui/rpi-web-shell/refs/heads/main/quick-installer.sh && chmod +x quick-installer.sh && alias sudo='sudo'
-# sudo -E ./quick-installer.sh
+# export USERNAME=$(whoami) && sudo -E ./quick-installer.sh
 #########################################################################################################################################################
 set -e
 
@@ -27,6 +27,7 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+
 # Installation destination
 INSTALL_DIR="/usr/share/rpi-web-shell"
 SERVICE_FILE="/etc/systemd/system/rpi-shell.service"
@@ -37,6 +38,12 @@ print_green "========================================"
 print_green "      RPi Web Shell Installer"
 print_green "========================================"
 echo ""
+
+if [ -z "$USERNAME" ]; then
+   print_red "USERNAME environment variable is not set. Please set it before running the script."
+   exit 1
+fi
+USER=$USERNAME
 
 print_green "Installing for user '$USER'"
 
