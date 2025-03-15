@@ -27,7 +27,7 @@ try:
 except ImportError:
     # Fallback in case env.py doesn't exist
     API_KEY = os.getenv("API_KEY", "change-this-key")
-    SHELL_PORT = os.getenv("SHELL_PORT", "5001")
+    SHELL_PORT = os.getenv("SHELL_PORT", 5001)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -313,7 +313,6 @@ if __name__ == '__main__':
             os.makedirs(directory)
     
     # Run on port 5001 by default so it doesn't conflict with RPi-Metrics
-    port = int(os.getenv("SHELL_PORT", 5001))
-    print(f"Starting RPi Web Shell on port {port}")
+    print(f"Starting RPi Web Shell on port {PORT}")
     
-    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=PORT, debug=False, allow_unsafe_werkzeug=True)
