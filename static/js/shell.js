@@ -154,7 +154,22 @@ function initSocket() {
     });
     
     socket.on('authentication_failed', function() {
-        showApiKeyModal();
+    // Clear any existing terminals
+    terminals.forEach(term => {
+        const terminalId = term.id;
+        // Remove from DOM without telling server
+        const tab = document.querySelector(`.tab[data-terminal-id="${terminalId}"]`);
+        const terminalInstance = document.getElementById(terminalId);
+        if (tab) tab.remove();
+        if (terminalInstance) terminalInstance.remove();
+    });
+    
+    // Reset terminals array
+    terminals = [];
+    activeTabIndex = -1;
+    
+    // Show authentication modal
+    showApiKeyModal();
     });
     
     socket.on('authentication_success', function() {
