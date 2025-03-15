@@ -162,4 +162,7 @@ echo "  sudo rm $SERVICE_FILE"
 echo "  sudo rm -rf $INSTALL_DIR"
 echo "  sudo systemctl daemon-reload"
 echo ""
+
+systemctl restart rpi-shell.service
+
 print_green "Thank you for installing RPi Web Shell!"
