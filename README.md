@@ -8,11 +8,11 @@ A lightweight web-based terminal interface for Raspberry Pi devices that provide
 
 - Secure web-based terminal access to your Raspberry Pi
 - API key authentication
-- Real-time terminal with full color support
+- Real-time terminal with full-colour support
 - Responsive design that works on desktop and mobile devices
 - Automatic reconnection if connection is lost
 - Compatible with standard terminal commands and applications
-- Session persistence
+- Multi-tabbed
 
 ## Requirements
 
