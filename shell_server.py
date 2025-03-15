@@ -15,7 +15,7 @@ import subprocess
 import threading
 import sys
 import time
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
 # Import API_KEY from env (same as RPi-Metrics)
@@ -31,7 +31,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
 
-# Store active shells
+# Store active shells by session ID and terminal ID
 shells = {}
 
 # Set a complete environment for shell processes
@@ -54,6 +54,10 @@ SHELL_ENV['SHELL'] = '/bin/bash'
 def index():
     return render_template('shell.html')
 
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
+
 @socketio.on('connect')
 def handle_connect():
     print(f"Client connected: {request.sid}")
@@ -61,7 +65,13 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     print(f"Client disconnected: {request.sid}")
-    kill_shell(request.sid)
+    if request.sid in shells:
+        # Clean up all shells for this session
+        terminal_ids = list(shells[request.sid].keys())
+        for terminal_id in terminal_ids:
+            kill_shell(request.sid, terminal_id)
+        # Remove session entry
+        del shells[request.sid]
     leave_room(request.sid)
 
 @socketio.on('authenticate')
@@ -75,23 +85,34 @@ def handle_authenticate(data):
 
 @socketio.on('create_shell')
 def handle_create_shell(data):
+    terminal_id = data.get('terminalId')
     cols = data.get('cols', 80)
     rows = data.get('rows', 24)
-    create_shell(request.sid, cols, rows)
+    create_shell(request.sid, terminal_id, cols, rows)
 
 @socketio.on('shell_input')
 def handle_shell_input(data):
-    success = write_to_shell(request.sid, data.get('input', ''))
+    terminal_id = data.get('terminalId')
+    input_text = data.get('input', '')
+    
+    success = write_to_shell(request.sid, terminal_id, input_text)
     return {'success': success}
 
 @socketio.on('resize_terminal')
 def handle_resize_terminal(data):
+    terminal_id = data.get('terminalId')
     cols = data.get('cols', 80)
     rows = data.get('rows', 24)
-    resize_terminal(request.sid, cols, rows)
+    
+    resize_terminal(request.sid, terminal_id, cols, rows)
 
-def create_shell(session_id, cols=80, rows=24):
-    """Create a new shell process for a session"""
+@socketio.on('close_shell')
+def handle_close_shell(data):
+    terminal_id = data.get('terminalId')
+    kill_shell(request.sid, terminal_id)
+
+def create_shell(session_id, terminal_id, cols=80, rows=24):
+    """Create a new shell process for a session and terminal ID"""
     try:
         # Create a pseudo-terminal
         master, slave = pty.openpty()
@@ -114,8 +135,12 @@ def create_shell(session_id, cols=80, rows=24):
             struct.pack("HHHH", rows, cols, 0, 0)
         )
         
+        # Initialize session if needed
+        if session_id not in shells:
+            shells[session_id] = {}
+        
         # Store shell data
-        shells[session_id] = {
+        shells[session_id][terminal_id] = {
             'process': process,
             'master': master,
             'slave': slave,
@@ -126,45 +151,47 @@ def create_shell(session_id, cols=80, rows=24):
         # Start output reader thread
         thread = threading.Thread(
             target=read_output,
-            args=(session_id, master),
+            args=(session_id, terminal_id, master),
             daemon=True
         )
         thread.start()
-        shells[session_id]['thread'] = thread
+        shells[session_id][terminal_id]['thread'] = thread
         
         return True
     except Exception as e:
         print(f"Error creating shell: {e}")
-        socketio.emit('shell_error', {'error': str(e)}, room=session_id)
+        socketio.emit('shell_error', {'terminalId': terminal_id, 'error': str(e)}, room=session_id)
         return False
 
-def resize_terminal(session_id, cols, rows):
+def resize_terminal(session_id, terminal_id, cols, rows):
     """Resize the terminal"""
-    if session_id in shells:
+    if session_id in shells and terminal_id in shells[session_id]:
         fcntl.ioctl(
-            shells[session_id]['master'],
+            shells[session_id][terminal_id]['master'],
             termios.TIOCSWINSZ,
             struct.pack("HHHH", rows, cols, 0, 0)
         )
         return True
     return False
 
-def write_to_shell(session_id, data):
+def write_to_shell(session_id, terminal_id, data):
     """Write data to the shell"""
-    if session_id in shells:
+    if session_id in shells and terminal_id in shells[session_id]:
         try:
-            os.write(shells[session_id]['master'], data.encode('utf-8'))
+            os.write(shells[session_id][terminal_id]['master'], data.encode('utf-8'))
             return True
         except Exception as e:
             print(f"Error writing to shell: {e}")
             return False
     return False
 
-def read_output(session_id, fd):
+def read_output(session_id, terminal_id, fd):
     """Read output from the shell and emit it via socketio"""
     max_read_bytes = 1024 * 20
     
-    while session_id in shells and shells[session_id]['running']:
+    while (session_id in shells and 
+           terminal_id in shells[session_id] and 
+           shells[session_id][terminal_id]['running']):
         try:
             r, _, _ = select.select([fd], [], [], 0.1)
             if r:
@@ -173,57 +200,65 @@ def read_output(session_id, fd):
                 if output:
                     # Convert bytes to string safely
                     text = output.decode('utf-8', errors='replace')
-                    socketio.emit('shell_output', {'output': text}, room=session_id)
+                    socketio.emit('shell_output', {'terminalId': terminal_id, 'output': text}, room=session_id)
                 else:
                     # EOF on the file descriptor
-                    kill_shell(session_id)
+                    kill_shell(session_id, terminal_id)
                     break
             
             # Short sleep to prevent high CPU usage
             time.sleep(0.01)
         except Exception as e:
             print(f"Error reading from shell: {e}")
-            socketio.emit('shell_error', {'error': str(e)}, room=session_id)
-            kill_shell(session_id)
+            socketio.emit('shell_error', {'terminalId': terminal_id, 'error': str(e)}, room=session_id)
+            kill_shell(session_id, terminal_id)
             break
 
-def kill_shell(session_id):
+def kill_shell(session_id, terminal_id):
     """Kill a shell process"""
-    if session_id in shells:
-        shells[session_id]['running'] = False
+    if session_id in shells and terminal_id in shells[session_id]:
+        shells[session_id][terminal_id]['running'] = False
         
         # Kill the process
         try:
-            os.killpg(os.getpgid(shells[session_id]['process'].pid), signal.SIGTERM)
+            os.killpg(os.getpgid(shells[session_id][terminal_id]['process'].pid), signal.SIGTERM)
         except:
             pass
         
         # Close file descriptors
         try:
-            os.close(shells[session_id]['master'])
+            os.close(shells[session_id][terminal_id]['master'])
         except:
             pass
         
         try:
-            os.close(shells[session_id]['slave'])
+            os.close(shells[session_id][terminal_id]['slave'])
         except:
             pass
         
         # Remove from shells dictionary
-        del shells[session_id]
+        del shells[session_id][terminal_id]
+        
+        # Clean up session if this was the last terminal
+        if not shells[session_id]:
+            del shells[session_id]
         
         return True
     return False
 
 if __name__ == '__main__':
-    # Create templates directory if it doesn't exist
+    # Create required directories if they don't exist
     template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
-    if not os.path.exists(template_dir):
-        os.makedirs(template_dir)
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    css_dir = os.path.join(static_dir, 'css')
+    js_dir = os.path.join(static_dir, 'js')
+    
+    for directory in [template_dir, static_dir, css_dir, js_dir]:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
     
     # Run on port 5001 by default so it doesn't conflict with RPi-Metrics
     port = int(os.getenv("SHELL_PORT", 5001))
     print(f"Starting RPi Web Shell on port {port}")
     
-    # The important change: allow unsafe werkzeug
     socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
