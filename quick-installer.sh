@@ -5,9 +5,8 @@
 
 ####################################################################################################
 # Usage: 
-# wget https://raw.githubusercontent.com/QinCai-rui/rpi-web-shell/refs/heads/main/quick-installer.sh
-# chmod +x quick-installer.sh
-# alias sudo='sudo' && sudo -E ./quick-installer.sh
+# wget https://raw.githubusercontent.com/QinCai-rui/rpi-web-shell/refs/heads/main/quick-installer.sh && chmod +x quick-installer.sh && alias sudo='sudo'
+# sudo -E ./quick-installer.sh
 ####################################################################################################
 set -e
 
