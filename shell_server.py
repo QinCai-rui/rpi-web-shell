@@ -23,11 +23,11 @@ try:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import env
     API_KEY = env.API_KEY
-    PORT = env.SHELL_PORT
+    PORT = int(env.SHELL_PORT)
 except ImportError:
     # Fallback in case env.py doesn't exist
     API_KEY = os.getenv("API_KEY", "change-this-key")
-    SHELL_PORT = os.getenv("SHELL_PORT", 5001)
+    PORT = int(os.getenv("SHELL_PORT", 5001))
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
