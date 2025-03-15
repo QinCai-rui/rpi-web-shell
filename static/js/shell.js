@@ -7,6 +7,19 @@ let activeTabIndex = -1;
 let contextMenuTarget = null;
 let terminalCounter = 0;
 
+// Debounce function to limit frequent executions
+function debounce(func, wait) {
+    let timeout;
+    return function() {
+        const context = this;
+        const args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            func.apply(context, args);
+        }, wait);
+    };
+}
+
 // Document ready handler
 document.addEventListener('DOMContentLoaded', function() {
     // Check if API key exists, otherwise show the modal
@@ -72,7 +85,21 @@ function setupEventListeners() {
             authenticateWithApiKey();
         }
     });
+
+    // Window resize handler for all terminals
+    window.addEventListener('resize', debounce(() => {
+        resizeAllTerminals();
+    }, 100));
+
+    // Visibility change handler
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && terminals.length > 0) {
+            // When returning to the tab, resize all terminals
+            setTimeout(resizeAllTerminals, 100);
+        }
+    });
 }
+
 
 // Initialize socket connection
 function initSocket() {
@@ -202,7 +229,24 @@ function createNewTab(title = null) {
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalElement);
-    fitAddon.fit();
+    //fitAddon.fit();
+
+    setTimeout(() => {
+        // Force a resize calculation
+        fitAddon.fit();
+    
+        // Apply a second fit after a brief delay to handle any DOM adjustments
+        setTimeout(() => {
+            fitAddon.fit();
+            // Send terminal size to server
+            const dimensions = { cols: term.cols, rows: term.rows };
+            socket.emit('resize_terminal', { 
+                terminalId: terminalId,
+                ...dimensions 
+            });
+        }, 100);
+    }, 50);
+
     
     // Handle terminal resize
     const resizeObserver = new ResizeObserver(() => {
@@ -274,24 +318,39 @@ function activateTab(terminalId) {
             activeTabIndex = index;
             const terminal = terminals[index];
             
-            // Force terminal resize
-            setTimeout(() => {
-                if (terminal.fitAddon) {
+            // IMPROVED: More reliable terminal resizing on tab activation
+        setTimeout(() => {
+            if (terminal.fitAddon) {
+                terminal.fitAddon.fit();
+        
+                // Force a second fit to ensure proper dimensions
+                setTimeout(() => {
                     terminal.fitAddon.fit();
-                    
-                    // Notify server about resize
                     socket.emit('resize_terminal', {
                         terminalId: terminalId,
                         cols: terminal.term.cols,
                         rows: terminal.term.rows
                     });
-                    
-                    // Focus terminal
                     terminal.term.focus();
-                }
-            }, 0);
+                }, 50);
+            }
+        }, 0);
         }
     }
+}
+
+// Resize all terminals function
+function resizeAllTerminals() {
+    terminals.forEach(terminal => {
+        if (terminal.fitAddon) {
+            terminal.fitAddon.fit();
+            socket.emit('resize_terminal', {
+                terminalId: terminal.id,
+                cols: terminal.term.cols,
+                rows: terminal.term.rows
+            });
+        }
+    });
 }
 
 // Close terminal by ID
