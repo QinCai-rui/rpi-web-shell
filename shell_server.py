@@ -34,6 +34,9 @@ socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
 # Store active shells by session ID and terminal ID
 shells = {}
 
+# Track authenticated sessions
+authenticated_sessions = set()
+
 # Set a complete environment for shell processes
 SHELL_ENV = os.environ.copy()
 
@@ -50,6 +53,10 @@ if 'HOME' not in SHELL_ENV:
 SHELL_ENV['TERM'] = 'xterm-256color'
 SHELL_ENV['SHELL'] = '/bin/bash'
 
+def is_authenticated(sid):
+    """Check if the session is authenticated"""
+    return sid in authenticated_sessions
+
 @app.route('/')
 def index():
     return render_template('shell.html')
@@ -65,6 +72,10 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     print(f"Client disconnected: {request.sid}")
+    # Remove from authenticated sessions
+    if request.sid in authenticated_sessions:
+        authenticated_sessions.remove(request.sid)
+        
     if request.sid in shells:
         # Clean up all shells for this session
         terminal_ids = list(shells[request.sid].keys())
@@ -78,6 +89,8 @@ def handle_disconnect():
 def handle_authenticate(data):
     client_api_key = data.get('apiKey')
     if client_api_key == API_KEY:
+        # Store the session ID as authenticated
+        authenticated_sessions.add(request.sid)
         join_room(request.sid)
         emit('authentication_success')
     else:
@@ -85,6 +98,11 @@ def handle_authenticate(data):
 
 @socketio.on('create_shell')
 def handle_create_shell(data):
+    # Check authentication before allowing terminal creation
+    if not is_authenticated(request.sid):
+        emit('authentication_failed')
+        return
+        
     terminal_id = data.get('terminalId')
     cols = data.get('cols', 80)
     rows = data.get('rows', 24)
@@ -92,6 +110,11 @@ def handle_create_shell(data):
 
 @socketio.on('shell_input')
 def handle_shell_input(data):
+    # Check authentication before allowing shell input
+    if not is_authenticated(request.sid):
+        emit('authentication_failed')
+        return
+        
     terminal_id = data.get('terminalId')
     input_text = data.get('input', '')
     
@@ -100,6 +123,11 @@ def handle_shell_input(data):
 
 @socketio.on('resize_terminal')
 def handle_resize_terminal(data):
+    # Check authentication before allowing terminal resize
+    if not is_authenticated(request.sid):
+        emit('authentication_failed')
+        return
+        
     terminal_id = data.get('terminalId')
     cols = data.get('cols', 80)
     rows = data.get('rows', 24)
@@ -108,6 +136,11 @@ def handle_resize_terminal(data):
 
 @socketio.on('close_shell')
 def handle_close_shell(data):
+    # Check authentication before allowing shell closure
+    if not is_authenticated(request.sid):
+        emit('authentication_failed')
+        return
+        
     terminal_id = data.get('terminalId')
     kill_shell(request.sid, terminal_id)
 
@@ -193,6 +226,14 @@ def read_output(session_id, terminal_id, fd):
            terminal_id in shells[session_id] and 
            shells[session_id][terminal_id]['running']):
         try:
+            # Check if process has terminated
+            process = shells[session_id][terminal_id]['process']
+            if process.poll() is not None:
+                # Process has exited
+                socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
+                kill_shell(session_id, terminal_id)
+                break
+                
             r, _, _ = select.select([fd], [], [], 0.1)
             if r:
                 output = os.read(fd, max_read_bytes)
@@ -201,8 +242,20 @@ def read_output(session_id, terminal_id, fd):
                     # Convert bytes to string safely
                     text = output.decode('utf-8', errors='replace')
                     socketio.emit('shell_output', {'terminalId': terminal_id, 'output': text}, room=session_id)
+                    
+                    # Check for exit command in output
+                    if 'exit' in text.lower() and (
+                        'logout' in text.lower() or 
+                        'connection closed' in text.lower() or
+                        'connection to' in text.lower() and 'closed' in text.lower()
+                    ):
+                        # Signal that the shell has exited
+                        socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
+                        kill_shell(session_id, terminal_id)
+                        break
                 else:
                     # EOF on the file descriptor
+                    socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
                     kill_shell(session_id, terminal_id)
                     break
             
