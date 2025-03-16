@@ -118,12 +118,16 @@ def handle_reconnect():
 
 @socketio.on('authenticate')
 def handle_authenticate(data):
+    print(f"Authentication attempt from {request.sid}")  # Debug log
     client_api_key = data.get('apiKey')
     if client_api_key == API_KEY:
-        store_auth_state(request.sid, client_api_key)
+        # Store the session ID as authenticated
+        print(f"Authentication successful for {request.sid}")  # Debug log
+        authenticated_sessions.add(request.sid)
         join_room(request.sid)
         emit('authentication_success')
     else:
+        print(f"Authentication failed for {request.sid}")  # Debug log
         emit('authentication_failed')
 
 @socketio.on('create_shell')
@@ -153,6 +157,7 @@ def handle_create_shell(data):
             'terminalId': terminal_id,
             'error': 'Failed to create shell'
         }, room=request.sid)
+        
 
 @socketio.on('shell_input')
 def handle_shell_input(data):
