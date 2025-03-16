@@ -196,19 +196,22 @@ def create_shell(session_id, terminal_id, cols=80, rows=24):
         # Create a pseudo-terminal
         master, slave = pty.openpty()
         
-        # Set raw mode for the terminal
-        term_settings = termios.tcgetattr(slave)
-        term_settings[3] = term_settings[3] & ~termios.ECHO  # Disable local echo
-        termios.tcsetattr(slave, termios.TCSANOW, term_settings)
+        # Get the current terminal attributes
+        attr = termios.tcgetattr(slave)
+        
+        # Modify terminal attributes to disable echo
+        attr[3] = attr[3] & ~termios.ECHO & ~termios.ICANON
+        
+        # Apply the modified attributes
+        termios.tcsetattr(slave, termios.TCSANOW, attr)
         
         # Start bash with a complete environment and change to home directory
         process = subprocess.Popen(
-            ['/bin/bash', '-c', 'cd ~ && exec /bin/bash'],
+            ['/bin/bash', '--login'],  # Use login shell for proper initialization
             preexec_fn=os.setsid,
             stdin=slave,
             stdout=slave,
             stderr=slave,
-            universal_newlines=True,
             env=SHELL_ENV
         )
         
@@ -241,7 +244,6 @@ def create_shell(session_id, terminal_id, cols=80, rows=24):
         thread.start()
         shells[session_id][terminal_id]['thread'] = thread
         
-        print(f"[DEBUG] Shell created successfully for {terminal_id}")
         return True
     except Exception as e:
         print(f"Error creating shell: {e}")
@@ -273,7 +275,7 @@ def write_to_shell(session_id, terminal_id, data):
             print(f"Error writing to shell: {e}")
             return False
     return False
-
+    
 def read_output(session_id, terminal_id, fd):
     """Read output from the shell and emit it via socketio"""
     max_read_bytes = 1024 * 20
@@ -285,7 +287,6 @@ def read_output(session_id, terminal_id, fd):
             # Check if process has terminated
             process = shells[session_id][terminal_id]['process']
             if process.poll() is not None:
-                print(f"Process terminated for terminal {terminal_id}")
                 socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
                 kill_shell(session_id, terminal_id)
                 break
@@ -297,35 +298,23 @@ def read_output(session_id, terminal_id, fd):
                 if output:
                     # Convert bytes to string safely
                     text = output.decode('utf-8', errors='replace')
-                    print(f"Sending output for terminal {terminal_id}: {repr(text)}")  # Debug logging
                     socketio.emit('shell_output', {
-                        'terminalId': terminal_id, 
+                        'terminalId': terminal_id,
                         'output': text
                     }, room=session_id)
-                    
-                    if 'exit' in text.lower() and (
-                        'logout' in text.lower() or 
-                        'connection closed' in text.lower() or
-                        'connection to' in text.lower() and 'closed' in text.lower()
-                    ):
-                        print(f"Exit detected for terminal {terminal_id}")
-                        socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
-                        kill_shell(session_id, terminal_id)
-                        break
                 else:
-                    print(f"EOF received for terminal {terminal_id}")
+                    # EOF on the file descriptor
                     socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
                     kill_shell(session_id, terminal_id)
                     break
             
             time.sleep(0.01)
         except Exception as e:
-            print(f"Error reading from shell {terminal_id}: {e}")
+            print(f"Error reading from shell: {e}")
             socketio.emit('shell_error', {'terminalId': terminal_id, 'error': str(e)}, room=session_id)
             kill_shell(session_id, terminal_id)
             break
-
-
+            
 def kill_shell(session_id, terminal_id):
     """Kill a shell process"""
     if session_id in shells and terminal_id in shells[session_id]:
