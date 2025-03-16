@@ -330,7 +330,7 @@ function createNewTab(title = null) {
         // Handle terminal input
         term.onData(data => {
             if (connected) {
-                console.log('[DEBUG] Sending input:', JSON.stringify(data));
+                // Don't echo locally, let the server handle it
                 socket.emit('shell_input', {
                     terminalId: terminalId,
                     input: data
@@ -342,10 +342,8 @@ function createNewTab(title = null) {
         socket.on('shell_output', function(data) {
             const terminal = terminals.find(t => t.id === data.terminalId);
             if (terminal && terminal.term) {
-                console.log('[DEBUG] Received output:', JSON.stringify(data.output));
-                // Clean up any potential duplicate prompts
-                const output = data.output.replace(/(\r\n\w+@\w+:~\$ ){2,}/g, '$1');
-                terminal.term.write(output);
+                // Write the output directly without any processing
+                terminal.term.write(data.output);
             }
         });
         
