@@ -9,6 +9,10 @@
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.1.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.7.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.8.0/lib/xterm-addon-web-links.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-search@0.11.0/lib/xterm-addon-search.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-serialize@0.9.0/lib/xterm-addon-serialize.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-clipboard@0.1.0/lib/xterm-addon-clipboard.js"></script>
 </head>
 <body>
     <div id="api-key-modal" class="api-key-modal">
@@ -37,6 +41,14 @@
             <div class="new-tab-button" onclick="createNewTab()">+ New Terminal</div>
         </div>
         <div class="terminals" id="terminals"></div>
+    </div>
+    
+    <!-- Terminal toolbar for clipboard operations -->
+    <div class="terminal-toolbar" id="terminal-toolbar">
+        <button id="copy-button" title="Copy selection (Ctrl+Shift+C)"><span class="toolbar-icon">📋</span> Copy</button>
+        <button id="paste-button" title="Paste (Ctrl+Shift+V)"><span class="toolbar-icon">📌</span> Paste</button>
+        <button id="find-button" title="Find in terminal (Ctrl+F)"><span class="toolbar-icon">🔍</span> Find</button>
+        <button id="select-all-button" title="Select all (Ctrl+A)"><span class="toolbar-icon">☑</span> Select All</button>
     </div>
     
     <!-- Context menu for tabs -->
