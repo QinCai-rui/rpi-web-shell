@@ -103,7 +103,6 @@ function setupEventListeners() {
 
 // Initialize socket connection
 function initSocket() {
-    console.log('Initializing socket connection...'); // Debug log
     // Connect to socket.io
     const serverUrl = window.location.protocol + '//' + window.location.host;
     const socketOptions = {
@@ -112,27 +111,18 @@ function initSocket() {
         reconnectionDelayMax: 10000,
         timeout: 20000
     };
-
-    if (socket) {
-        console.log('Cleaning up existing socket...'); // Debug log
-        socket.close();
-    }
-    
     socket = io(serverUrl, socketOptions);
     
     // Socket.io event listeners
     socket.on('connect', function() {
-        console.log('[DEBUG] Socket connected'); // Debug log
         connected = true;
         updateConnectionStatus();
         
         // Send API key for authentication
-        console.log('[DEBUG] Sending authentication request');
         socket.emit('authenticate', { apiKey: apiKey });
     });
-
+    
     socket.on('disconnect', function() {
-        console.log('Socket disconnected'); // Debug log
         connected = false;
         updateConnectionStatus();
         terminals.forEach(term => {
@@ -143,7 +133,6 @@ function initSocket() {
     });
     
     socket.on('reconnect', function() {
-        console.log('Socket reconnected'); // Debug log
         connected = true;
         updateConnectionStatus();
         terminals.forEach(term => {
@@ -153,9 +142,8 @@ function initSocket() {
         });
         
         // Re-authenticate after reconnection
-        socket.emit('authenticate', { apiKey: apiKey });
+        //socket.emit('authenticate', { apiKey: apiKey });
     });
-
     
     socket.on('reconnect_failed', function() {
         terminals.forEach(term => {
@@ -166,7 +154,6 @@ function initSocket() {
     });
     
     socket.on('authentication_failed', function() {
-    console.log('Authentication failed'); // Debug log
     // Clear any existing terminals
     terminals.forEach(term => {
         const terminalId = term.id;
@@ -186,34 +173,16 @@ function initSocket() {
     });
     
     socket.on('authentication_success', function() {
-        console.log('[DEBUG] Authentication successful');
-        
-        // Clear existing terminals
-        while (terminals.length > 0) {
-            const term = terminals.pop();
-            if (term.resizeObserver) {
-                term.resizeObserver.disconnect();
-            }
-            if (term.term) {
-                term.term.dispose();
-            }
-            const tab = document.querySelector(`.tab[data-terminal-id="${term.id}"]`);
-            const terminalInstance = document.getElementById(term.id);
-            if (tab) tab.remove();
-            if (terminalInstance) terminalInstance.remove();
+        // Create first tab after authentication
+        if (terminals.length === 0) {
+            createNewTab();
         }
-        
-        console.log('[DEBUG] Creating new terminal');
-        createNewTab();
     });
     
     socket.on('shell_output', function(data) {
         const terminal = terminals.find(t => t.id === data.terminalId);
         if (terminal && terminal.term) {
-            console.log('Received output:', JSON.stringify(data.output));  // Debug logging
             terminal.term.write(data.output);
-        } else {
-            console.error('Terminal not found for ID:', data.terminalId);
         }
     });
     
@@ -227,141 +196,121 @@ function initSocket() {
 
 // Create a new terminal tab
 function createNewTab(title = null) {
-    console.log('[DEBUG] Starting createNewTab');
     const terminalId = 'terminal-' + terminalCounter++;
     const tabTitle = title || 'Terminal ' + terminalCounter;
-    console.log('[DEBUG] Creating terminal:', terminalId);
     
-    try {
-        // Create tab element
-        const tabBar = document.querySelector('.tab-bar');
-        const tab = document.createElement('div');
-        tab.className = 'tab';
-        tab.setAttribute('data-terminal-id', terminalId);
-        tab.innerHTML = `
-            <span class="tab-title">${tabTitle}</span>
-            <span class="tab-close">×</span>
-        `;
-        tabBar.insertBefore(tab, document.querySelector('.new-tab-button'));
-        
-        // Create terminal container
-        const terminalsContainer = document.getElementById('terminals');
-        const terminalInstance = document.createElement('div');
-        terminalInstance.className = 'terminal-instance';
-        terminalInstance.id = terminalId;
-        
-        const terminalElement = document.createElement('div');
-        terminalElement.className = 'terminal';
-        
-        terminalInstance.appendChild(terminalElement);
-        terminalsContainer.appendChild(terminalInstance);
-        
-        console.log('[DEBUG] DOM elements created');
-        
-        // Initialize terminal
-        const term = new Terminal({
-            cursorBlink: true,
-            theme: {
-                background: '#2d2d2d',
-                foreground: '#f8f8f8',
-                cursor: '#ffffff'
-            },
-            fontFamily: 'Courier New, monospace',
-            fontSize: 14,
-            allowProposedApi: true,
-            convertEol: true,
-            rendererType: 'canvas',
-            allowTransparency: true,
-            cursorStyle: 'block',
-            scrollback: 10000,
-            termName: 'xterm-256color',
-            cols: 80,
-            rows: 24
-        });
-                
-        console.log('[DEBUG] Terminal instance created');
-        
-        const fitAddon = new FitAddon.FitAddon();
-        term.loadAddon(fitAddon);
-        term.open(terminalElement);
-        fitAddon.fit();
-        
-        console.log('[DEBUG] Terminal opened and fitted');
-        
-        // Store terminal object
-        const terminal = {
-            id: terminalId,
-            term: term,
-            title: tabTitle,
-            fitAddon: fitAddon,
-            resizeObserver: null
-        };
-        
-        terminals.push(terminal);
-        
-        console.log('[DEBUG] Terminal object stored');
-        
-        // Create shell on server
-        console.log('[DEBUG] Requesting shell creation from server');
-        socket.emit('create_shell', {
-            terminalId: terminalId,
-            cols: term.cols,
-            rows: term.rows
-        });
-        
-        // Set up resize observer
-        const resizeObserver = new ResizeObserver(() => {
-            if (term && fitAddon) {
-                fitAddon.fit();
-                const dimensions = { cols: term.cols, rows: term.rows };
-                console.log('[DEBUG] Sending resize event:', dimensions);
-                socket.emit('resize_terminal', { 
-                    terminalId: terminalId,
-                    ...dimensions 
-                });
-            }
-        });
-        
-        resizeObserver.observe(terminalElement);
-        terminal.resizeObserver = resizeObserver;
-        
-        console.log('[DEBUG] Resize observer set up');
-        
-        // Handle terminal input
-        term.onData(data => {
-            if (connected) {
-                // Don't echo locally, let the server handle it
-                socket.emit('shell_input', {
-                    terminalId: terminalId,
-                    input: data
-                });
-            }
-        });
-        
-        // Handle terminal output
-        socket.on('shell_output', function(data) {
-            const terminal = terminals.find(t => t.id === data.terminalId);
-            if (terminal && terminal.term) {
-                // Write the output directly without any processing
-                terminal.term.write(data.output);
-            }
-        });
-        
-        // Activate this tab
-        activateTab(terminalId);
-        
-        console.log('[DEBUG] Terminal setup complete');
-        return terminalId;
-        
-    } catch (error) {
-        console.error('[DEBUG] Error in createNewTab:', error);
-        throw error;
-    }
-}
+    // Create tab element
+    const tabBar = document.querySelector('.tab-bar');
+    const tab = document.createElement('div');
+    tab.className = 'tab';
+    tab.setAttribute('data-terminal-id', terminalId);
+    tab.innerHTML = `
+        <span class="tab-title">${tabTitle}</span>
+        <span class="tab-close">×</span>
+    `;
+    tabBar.insertBefore(tab, document.querySelector('.new-tab-button'));
+    
+    // Create terminal container
+    const terminalsContainer = document.getElementById('terminals');
+    const terminalInstance = document.createElement('div');
+    terminalInstance.className = 'terminal-instance';
+    terminalInstance.id = terminalId;
+    
+    const terminalElement = document.createElement('div');
+    terminalElement.className = 'terminal';
+    
+    terminalInstance.appendChild(terminalElement);
+    terminalsContainer.appendChild(terminalInstance);
+    
+    // Initialize terminal
+    const term = new Terminal({
+        cursorBlink: true,
+        theme: {
+            background: '#2d2d2d',
+            foreground: '#f8f8f8',
+            cursor: '#ffffff'
+        },
+        fontFamily: 'Courier New, monospace',
+        fontSize: 14,
+        allowProposedApi: true,
+        convertEol: true,
+        rendererType: 'canvas',
+        allowTransparency: true,
+        cursorStyle: 'block',
+        scrollback: 10000,
+        termName: 'xterm-256color'
+    });
+    
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(terminalElement);
+    //fitAddon.fit();
 
-// Add a helper function for debug logging
-function repr(str) {
-    return str.replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+    setTimeout(() => {
+        // Force a resize calculation
+        fitAddon.fit();
+    
+        // Apply a second fit after a brief delay to handle any DOM adjustments
+        setTimeout(() => {
+            fitAddon.fit();
+            // Send terminal size to server
+            const dimensions = { cols: term.cols, rows: term.rows };
+            socket.emit('resize_terminal', { 
+                terminalId: terminalId,
+                ...dimensions 
+            });
+        }, 100);
+    }, 50);
+
+    
+    // Handle terminal resize
+    const resizeObserver = new ResizeObserver(() => {
+        try {
+            fitAddon.fit();
+            
+            // Send terminal size to server
+            const dimensions = { cols: term.cols, rows: term.rows };
+            socket.emit('resize_terminal', { 
+                terminalId: terminalId,
+                ...dimensions 
+            });
+        } catch (err) {
+            console.error('Error resizing terminal:', err);
+        }
+    });
+    
+    resizeObserver.observe(terminalElement);
+    
+    // Store terminal object
+    terminals.push({
+        id: terminalId,
+        term: term,
+        title: tabTitle,
+        fitAddon: fitAddon,
+        resizeObserver: resizeObserver
+    });
+    
+    // Create shell on server
+    socket.emit('create_shell', {
+        terminalId: terminalId,
+        cols: term.cols,
+        rows: term.rows
+    });
+    
+    // Handle terminal input
+    term.onData(data => {
+        if (connected) {
+            socket.emit('shell_input', {
+                terminalId: terminalId,
+                input: data
+            });
+        }
+    });
+    
+    // Activate this tab
+    activateTab(terminalId);
+    
+    return terminalId;
 }
 
 // Activate a tab by terminal ID
