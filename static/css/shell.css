@@ -257,3 +257,91 @@ footer a:hover {
 .tab-context-menu.visible {
     display: block;
 }
+
+.terminal-toolbar {
+    display: flex;
+    background-color: #333;
+    padding: 5px;
+    gap: 5px;
+    border-bottom: 1px solid #555;
+}
+
+.terminal-toolbar button {
+    background-color: #444;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.terminal-toolbar button:hover {
+    background-color: #555;
+}
+
+.terminal-toolbar button:active {
+    background-color: #666;
+}
+
+.toolbar-icon {
+    font-size: 14px;
+}
+
+.terminal-instance {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: none;
+}
+
+.terminal-instance.active {
+    display: flex;
+}
+
+.terminal {
+    flex: 1;
+    padding: 5px;
+}
+
+/* Styling for the search bar */
+.xterm-find-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(30, 30, 30, 0.8);
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 10px;
+    z-index: 10;
+    display: flex;
+    gap: 5px;
+}
+
+.xterm-find-overlay input {
+    background-color: #333;
+    color: white;
+    border: 1px solid #666;
+    padding: 5px;
+    border-radius: 2px;
+}
+
+.xterm-find-overlay button {
+    background-color: #444;
+    color: white;
+    border: 1px solid #666;
+    padding: 5px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.xterm-find-overlay button:hover {
+    background-color: #555;
+}
