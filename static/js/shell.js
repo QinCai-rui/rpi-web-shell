@@ -178,11 +178,14 @@ function initSocket() {
             createNewTab();
         }
     });
-    
+
     socket.on('shell_output', function(data) {
         const terminal = terminals.find(t => t.id === data.terminalId);
         if (terminal && terminal.term) {
+            console.log('Received output:', JSON.stringify(data.output));  // Debug logging
             terminal.term.write(data.output);
+        } else {
+            console.error('Terminal not found for ID:', data.terminalId);
         }
     });
     
