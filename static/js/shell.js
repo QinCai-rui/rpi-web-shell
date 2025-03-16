@@ -173,8 +173,10 @@ function initSocket() {
     });
     
     socket.on('authentication_success', function() {
+        console.log('Authentication successful'); // Debug logging
         // Create first tab after authentication
         if (terminals.length === 0) {
+            console.log('Creating initial terminal'); // Debug logging
             createNewTab();
         }
     });
@@ -201,6 +203,7 @@ function initSocket() {
 function createNewTab(title = null) {
     const terminalId = 'terminal-' + terminalCounter++;
     const tabTitle = title || 'Terminal ' + terminalCounter;
+    console.log('Creating new tab:', terminalId); // Debug logging
     
     // Create tab element
     const tabBar = document.querySelector('.tab-bar');
@@ -247,36 +250,39 @@ function createNewTab(title = null) {
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalElement);
-    //fitAddon.fit();
 
-    setTimeout(() => {
-        // Force a resize calculation
-        fitAddon.fit();
-    
-        // Apply a second fit after a brief delay to handle any DOM adjustments
-        setTimeout(() => {
-            fitAddon.fit();
-            // Send terminal size to server
-            const dimensions = { cols: term.cols, rows: term.rows };
-            socket.emit('resize_terminal', { 
-                terminalId: terminalId,
-                ...dimensions 
-            });
-        }, 100);
-    }, 50);
+    // Store terminal object before creating shell
+    terminals.push({
+        id: terminalId,
+        term: term,
+        title: tabTitle,
+        fitAddon: fitAddon,
+        resizeObserver: null // We'll set this after creating the shell
+    });
 
+    // Initial fit
+    fitAddon.fit();
     
-    // Handle terminal resize
+    // Create shell on server first
+    console.log('Requesting shell creation:', terminalId); // Debug logging
+    socket.emit('create_shell', {
+        terminalId: terminalId,
+        cols: term.cols,
+        rows: term.rows
+    });
+    
+    // Now set up the resize observer
     const resizeObserver = new ResizeObserver(() => {
         try {
-            fitAddon.fit();
-            
-            // Send terminal size to server
-            const dimensions = { cols: term.cols, rows: term.rows };
-            socket.emit('resize_terminal', { 
-                terminalId: terminalId,
-                ...dimensions 
-            });
+            if (term && fitAddon) {
+                fitAddon.fit();
+                // Send terminal size to server
+                const dimensions = { cols: term.cols, rows: term.rows };
+                socket.emit('resize_terminal', { 
+                    terminalId: terminalId,
+                    ...dimensions 
+                });
+            }
         } catch (err) {
             console.error('Error resizing terminal:', err);
         }
@@ -284,25 +290,16 @@ function createNewTab(title = null) {
     
     resizeObserver.observe(terminalElement);
     
-    // Store terminal object
-    terminals.push({
-        id: terminalId,
-        term: term,
-        title: tabTitle,
-        fitAddon: fitAddon,
-        resizeObserver: resizeObserver
-    });
-    
-    // Create shell on server
-    socket.emit('create_shell', {
-        terminalId: terminalId,
-        cols: term.cols,
-        rows: term.rows
-    });
+    // Update the stored terminal object with the resize observer
+    const terminalIndex = terminals.findIndex(t => t.id === terminalId);
+    if (terminalIndex !== -1) {
+        terminals[terminalIndex].resizeObserver = resizeObserver;
+    }
     
     // Handle terminal input
     term.onData(data => {
         if (connected) {
+            console.log('Sending input:', repr(data)); // Debug logging
             socket.emit('shell_input', {
                 terminalId: terminalId,
                 input: data
@@ -314,6 +311,11 @@ function createNewTab(title = null) {
     activateTab(terminalId);
     
     return terminalId;
+}
+
+// Add a helper function for debug logging
+function repr(str) {
+    return str.replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
 }
 
 // Activate a tab by terminal ID
