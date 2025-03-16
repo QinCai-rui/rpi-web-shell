@@ -152,9 +152,9 @@ def create_shell(session_id, terminal_id, cols=80, rows=24):
         # Create a pseudo-terminal
         master, slave = pty.openpty()
         
-        # Start bash with a complete environment and change to home directory
+        # Start bash with a complete environment and run ssh localhost
         process = subprocess.Popen(
-            ['/bin/bash', '-c', 'cd ~ && exec /bin/bash'],
+            ['/bin/bash', '-c', 'cd ~ && exec /bin/bash -c "ssh localhost"'],
             preexec_fn=os.setsid,
             stdin=slave,
             stdout=slave,
