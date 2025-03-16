@@ -132,10 +132,11 @@ def handle_authenticate(data):
 
 @socketio.on('create_shell')
 def handle_create_shell(data):
-    print(f"Received create_shell request: {data}")  # Debug logging
+    print(f"[DEBUG] Create shell request from {request.sid}: {data}")
+    
     # Check authentication before allowing terminal creation
     if not is_authenticated(request.sid):
-        print(f"Authentication failed for session {request.sid}")  # Debug logging
+        print(f"[DEBUG] Create shell rejected - not authenticated: {request.sid}")
         emit('authentication_failed')
         return
         
@@ -143,21 +144,23 @@ def handle_create_shell(data):
     cols = data.get('cols', 80)
     rows = data.get('rows', 24)
     
+    print(f"[DEBUG] Creating shell with dimensions: {cols}x{rows}")
+    
     success = create_shell(request.sid, terminal_id, cols, rows)
+    
     if success:
-        print(f"Successfully created shell for terminal {terminal_id}")  # Debug logging
+        print(f"[DEBUG] Shell created successfully: {terminal_id}")
         # Send initial prompt
-        socketio.emit('shell_output', {
+        emit('shell_output', {
             'terminalId': terminal_id,
             'output': f"\r\n{os.getenv('USER')}@{os.uname()[1]}:~$ "
-        }, room=request.sid)
+        })
     else:
-        print(f"Failed to create shell for terminal {terminal_id}")  # Debug logging
-        socketio.emit('shell_error', {
+        print(f"[DEBUG] Shell creation failed: {terminal_id}")
+        emit('shell_error', {
             'terminalId': terminal_id,
             'error': 'Failed to create shell'
-        }, room=request.sid)
-        
+        })
 
 @socketio.on('shell_input')
 def handle_shell_input(data):
