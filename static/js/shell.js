@@ -103,6 +103,7 @@ function setupEventListeners() {
 
 // Initialize socket connection
 function initSocket() {
+    console.log('Initializing socket connection...'); // Debug log
     // Connect to socket.io
     const serverUrl = window.location.protocol + '//' + window.location.host;
     const socketOptions = {
@@ -111,18 +112,26 @@ function initSocket() {
         reconnectionDelayMax: 10000,
         timeout: 20000
     };
+
+    if (socket) {
+        console.log('Cleaning up existing socket...'); // Debug log
+        socket.close();
+    }
+    
     socket = io(serverUrl, socketOptions);
     
     // Socket.io event listeners
     socket.on('connect', function() {
+        console.log('Socket connected'); // Debug log
         connected = true;
         updateConnectionStatus();
-        
+    
         // Send API key for authentication
         socket.emit('authenticate', { apiKey: apiKey });
     });
-    
+
     socket.on('disconnect', function() {
+        console.log('Socket disconnected'); // Debug log
         connected = false;
         updateConnectionStatus();
         terminals.forEach(term => {
@@ -133,6 +142,7 @@ function initSocket() {
     });
     
     socket.on('reconnect', function() {
+        console.log('Socket reconnected'); // Debug log
         connected = true;
         updateConnectionStatus();
         terminals.forEach(term => {
@@ -142,8 +152,9 @@ function initSocket() {
         });
         
         // Re-authenticate after reconnection
-        //socket.emit('authenticate', { apiKey: apiKey });
+        socket.emit('authenticate', { apiKey: apiKey });
     });
+
     
     socket.on('reconnect_failed', function() {
         terminals.forEach(term => {
@@ -154,6 +165,7 @@ function initSocket() {
     });
     
     socket.on('authentication_failed', function() {
+    console.log('Authentication failed'); // Debug log
     // Clear any existing terminals
     terminals.forEach(term => {
         const terminalId = term.id;
@@ -173,14 +185,16 @@ function initSocket() {
     });
     
     socket.on('authentication_success', function() {
-        console.log('Authentication successful'); // Debug logging
-        // Create first tab after authentication
-        if (terminals.length === 0) {
-            console.log('Creating initial terminal'); // Debug logging
-            createNewTab();
-        }
+        console.log('Authentication successful, creating terminal...'); // Debug log
+        // Always create a new terminal after successful authentication
+        setTimeout(() => {
+            if (terminals.length === 0) {
+                console.log('No terminals exist, creating first terminal...'); // Debug log
+                createNewTab();
+            }
+        }, 100); // Small delay to ensure everything is ready
     });
-
+    
     socket.on('shell_output', function(data) {
         const terminal = terminals.find(t => t.id === data.terminalId);
         if (terminal && terminal.term) {
