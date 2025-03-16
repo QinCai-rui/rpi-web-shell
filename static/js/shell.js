@@ -274,9 +274,11 @@ function createNewTab(title = null) {
             allowTransparency: true,
             cursorStyle: 'block',
             scrollback: 10000,
-            termName: 'xterm-256color'
+            termName: 'xterm-256color',
+            cols: 80,
+            rows: 24
         });
-        
+                
         console.log('[DEBUG] Terminal instance created');
         
         const fitAddon = new FitAddon.FitAddon();
@@ -328,7 +330,7 @@ function createNewTab(title = null) {
         // Handle terminal input
         term.onData(data => {
             if (connected) {
-                console.log('[DEBUG] Sending input:', data.split('').map(c => c.charCodeAt(0)));
+                console.log('[DEBUG] Sending input:', JSON.stringify(data));
                 socket.emit('shell_input', {
                     terminalId: terminalId,
                     input: data
@@ -338,9 +340,12 @@ function createNewTab(title = null) {
         
         // Handle terminal output
         socket.on('shell_output', function(data) {
-            if (data.terminalId === terminalId) {
-                console.log('[DEBUG] Received output:', data.output.split('').map(c => c.charCodeAt(0)));
-                term.write(data.output);
+            const terminal = terminals.find(t => t.id === data.terminalId);
+            if (terminal && terminal.term) {
+                console.log('[DEBUG] Received output:', JSON.stringify(data.output));
+                // Clean up any potential duplicate prompts
+                const output = data.output.replace(/(\r\n\w+@\w+:~\$ ){2,}/g, '$1');
+                terminal.term.write(output);
             }
         });
         
