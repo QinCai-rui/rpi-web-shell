@@ -106,9 +106,9 @@ function initSocket() {
     // Connect to socket.io
     const serverUrl = window.location.protocol + '//' + window.location.host;
     const socketOptions = {
-        reconnectionAttempts: 5,
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
+        reconnectionDelayMax: 10000,
         timeout: 20000
     };
     socket = io(serverUrl, socketOptions);
