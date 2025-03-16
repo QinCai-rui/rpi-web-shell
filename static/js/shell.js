@@ -142,7 +142,7 @@ function initSocket() {
         });
         
         // Re-authenticate after reconnection
-        socket.emit('authenticate', { apiKey: apiKey });
+        //socket.emit('authenticate', { apiKey: apiKey });
     });
     
     socket.on('reconnect_failed', function() {
