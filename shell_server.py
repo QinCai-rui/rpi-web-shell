@@ -134,7 +134,6 @@ def handle_authenticate(data):
 def handle_create_shell(data):
     print(f"[DEBUG] Create shell request from {request.sid}: {data}")
     
-    # Check authentication before allowing terminal creation
     if not is_authenticated(request.sid):
         print(f"[DEBUG] Create shell rejected - not authenticated: {request.sid}")
         emit('authentication_failed')
@@ -150,11 +149,7 @@ def handle_create_shell(data):
     
     if success:
         print(f"[DEBUG] Shell created successfully: {terminal_id}")
-        # Send initial prompt
-        emit('shell_output', {
-            'terminalId': terminal_id,
-            'output': f"\r\n{os.getenv('USER')}@{os.uname()[1]}:~$ "
-        })
+        # Don't send initial prompt - let the shell handle it
     else:
         print(f"[DEBUG] Shell creation failed: {terminal_id}")
         emit('shell_error', {
@@ -201,6 +196,11 @@ def create_shell(session_id, terminal_id, cols=80, rows=24):
         # Create a pseudo-terminal
         master, slave = pty.openpty()
         
+        # Set raw mode for the terminal
+        term_settings = termios.tcgetattr(slave)
+        term_settings[3] = term_settings[3] & ~termios.ECHO  # Disable local echo
+        termios.tcsetattr(slave, termios.TCSANOW, term_settings)
+        
         # Start bash with a complete environment and change to home directory
         process = subprocess.Popen(
             ['/bin/bash', '-c', 'cd ~ && exec /bin/bash'],
@@ -241,6 +241,7 @@ def create_shell(session_id, terminal_id, cols=80, rows=24):
         thread.start()
         shells[session_id][terminal_id]['thread'] = thread
         
+        print(f"[DEBUG] Shell created successfully for {terminal_id}")
         return True
     except Exception as e:
         print(f"Error creating shell: {e}")
