@@ -259,7 +259,7 @@ def read_output(session_id, terminal_id, fd):
             # Check if process has terminated
             process = shells[session_id][terminal_id]['process']
             if process.poll() is not None:
-                # Process has exited
+                print(f"Process terminated for terminal {terminal_id}")
                 socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
                 kill_shell(session_id, terminal_id)
                 break
@@ -271,31 +271,34 @@ def read_output(session_id, terminal_id, fd):
                 if output:
                     # Convert bytes to string safely
                     text = output.decode('utf-8', errors='replace')
-                    socketio.emit('shell_output', {'terminalId': terminal_id, 'output': text}, room=session_id)
+                    print(f"Sending output for terminal {terminal_id}: {repr(text)}")  # Debug logging
+                    socketio.emit('shell_output', {
+                        'terminalId': terminal_id, 
+                        'output': text
+                    }, room=session_id)
                     
-                    # Check for exit command in output
                     if 'exit' in text.lower() and (
                         'logout' in text.lower() or 
                         'connection closed' in text.lower() or
                         'connection to' in text.lower() and 'closed' in text.lower()
                     ):
-                        # Signal that the shell has exited
+                        print(f"Exit detected for terminal {terminal_id}")
                         socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
                         kill_shell(session_id, terminal_id)
                         break
                 else:
-                    # EOF on the file descriptor
+                    print(f"EOF received for terminal {terminal_id}")
                     socketio.emit('shell_exit', {'terminalId': terminal_id}, room=session_id)
                     kill_shell(session_id, terminal_id)
                     break
             
-            # Short sleep to prevent high CPU usage
             time.sleep(0.01)
         except Exception as e:
-            print(f"Error reading from shell: {e}")
+            print(f"Error reading from shell {terminal_id}: {e}")
             socketio.emit('shell_error', {'terminalId': terminal_id, 'error': str(e)}, room=session_id)
             kill_shell(session_id, terminal_id)
             break
+
 
 def kill_shell(session_id, terminal_id):
     """Kill a shell process"""
