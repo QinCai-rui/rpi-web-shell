@@ -98,6 +98,8 @@ function setupEventListeners() {
             setTimeout(resizeAllTerminals, 100);
         }
     });
+
+    document.addEventListener('keydown', handleKeyboardShortcuts);
 }
 
 
@@ -238,7 +240,10 @@ function createNewTab(title = null) {
         allowTransparency: true,
         cursorStyle: 'block',
         scrollback: 10000,
-        termName: 'xterm-256color'
+        termName: 'xterm-256color',
+        rightClickSelectsWord: true, // Make right-click select words
+        disableStdin: false,
+        allowProposedApi: true
     });
     
     const fitAddon = new FitAddon.FitAddon();
@@ -289,6 +294,15 @@ function createNewTab(title = null) {
         fitAddon: fitAddon,
         resizeObserver: resizeObserver
     });
+
+    // Add this handler to help with copy/paste
+    term.attachCustomKeyEventHandler((event) => {
+        // Allow browser to handle copy when text is selected
+        if (event.ctrlKey && event.key === 'c' && term.hasSelection()) {
+            return false;
+        }
+        return true;
+    });
     
     // Create shell on server
     socket.emit('create_shell', {
@@ -306,6 +320,21 @@ function createNewTab(title = null) {
             });
         }
     });
+
+    terminalElement.addEventListener('contextmenu', function(event) {
+    // If there's a selection, show the default context menu
+    if (term.hasSelection()) {
+        return true;
+    }
+    
+    // Otherwise prevent default and provide a custom behavior if needed
+    event.preventDefault();
+    
+    //const x = event.clientX;
+    //const y = event.clientY;
+    
+    pasteFromClipboard();
+});
     
     // Activate this tab
     activateTab(terminalId);
@@ -313,6 +342,68 @@ function createNewTab(title = null) {
     return terminalId;
 }
 
+// Copy selected text from terminal
+function copySelectedText() {
+    if (activeTabIndex === -1) return;
+    
+    const activeTerminal = terminals[activeTabIndex];
+    if (!activeTerminal || !activeTerminal.term) return;
+    
+    const selectedText = activeTerminal.term.getSelection();
+    if (selectedText) {
+        navigator.clipboard.writeText(selectedText).then(() => {
+            console.log('Text copied to clipboard');
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+        });
+    }
+}
+
+// Paste from clipboard to terminal
+function pasteFromClipboard() {
+    if (activeTabIndex === -1) return;
+    
+    const activeTerminal = terminals[activeTabIndex];
+    if (!activeTerminal || !activeTerminal.term) return;
+    
+    navigator.clipboard.readText().then(text => {
+        if (connected && text) {
+            socket.emit('shell_input', {
+                terminalId: activeTerminal.id,
+                input: text
+            });
+        }
+    }).catch(err => {
+        const pasteText = prompt("Paste your text here:");
+        if (pasteText && connected) {
+            socket.emit('shell_input', {
+                terminalId: activeTerminal.id,
+                input: pasteText
+            });
+        }
+    });
+}
+
+// Handle keyboard shortcuts globally
+function handleKeyboardShortcuts(event) {
+    if (activeTabIndex === -1) return;
+    
+    const activeTerminal = terminals[activeTabIndex];
+    if (!activeTerminal) return;
+    
+    // Handle Ctrl+Shift+C for copy
+    if (event.ctrlKey && event.shiftKey && event.code === 'KeyC') {
+        event.preventDefault();
+        copySelectedText();
+    }
+    
+    // Handle Ctrl+Shift+V for paste
+    if (event.ctrlKey && event.shiftKey && event.code === 'KeyV') {
+        event.preventDefault();
+        pasteFromClipboard();
+    }
+}
+        
 // Activate a tab by terminal ID
 function activateTab(terminalId) {
     // Deactivate all tabs first
