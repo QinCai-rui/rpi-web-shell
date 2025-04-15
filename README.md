@@ -2,7 +2,7 @@
 
 A lightweight web-based terminal interface for servers that provides secure shell access through your browser.
 
-![RPi Web Shell Screenshot](https://github.com/user-attachments/assets/7dfa7dba-85f4-45b4-8e2f-a98ca0db98e1)
+![RPi Web Shell Screenshot](https://github.com/user-attachments/assets/df8aee59-95c7-4bf6-a862-46ac0c5112ae)
 
 ## Features
 
