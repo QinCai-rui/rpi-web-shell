@@ -548,3 +548,19 @@ function logout() {
     localStorage.removeItem('rpi_metrics_shell_api_key');
     window.location.reload();
 }
+
+// Add a selectionchange event listener to the document
+document.addEventListener('selectionchange', () => {
+    const selection = window.getSelection();
+    
+    // Check if there is any text selected
+    if (selection && selection.toString().trim().length > 0) {
+        navigator.clipboard.writeText(selection.toString())
+            .then(() => {
+                console.log('Selected text copied to clipboard:', selection.toString());
+            })
+            .catch(err => {
+                console.error('Failed to copy text to clipboard:', err);
+            });
+    }
+});
