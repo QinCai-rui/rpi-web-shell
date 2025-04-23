@@ -4,6 +4,71 @@
 # This script installs and configures the RPi Web Shell application for the current user
 # Supports multiple users on the same server
 
+# Parse command line arguments
+ASSUME_YES=false
+API_KEY=""
+PORT=""        # Empty means use default
+SHELL_METHOD="" # Empty means use default
+PORT_PROVIDED=false
+METHOD_PROVIDED=false
+
+# Process command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --help)
+      echo "Usage: $0 [--assume-yes] [--api=API_KEY] [--port=PORT] [--method=METHOD]"
+      echo "Options:"
+      echo "  --help         Show this help message"
+      echo "  --assume-yes   Automatically answer 'yes' to prompts"
+      echo "  --api=API_KEY  Specify a custom API key"
+      echo "  --port=PORT    Specify a custom port number (default: 5001)"
+      echo "  --method=METHOD Specify shell connection method: 1=Direct shell, 2=SSH localhost (default: 1)"
+      exit 0
+      ;;
+    --assume-yes)
+      ASSUME_YES=true
+      shift
+      ;;
+    --port=*)
+      PORT="${1#*=}"
+      PORT_PROVIDED=true
+      if [[ ! "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+        echo "Invalid port number. Must be between 1 and 65535."
+        exit 1
+      fi
+      shift
+      ;;
+    --api=*)
+      API_KEY="${1#*=}"
+      shift
+      ;;
+    --method=*)
+      SHELL_METHOD="${1#*=}"
+      METHOD_PROVIDED=true
+      if [[ ! "$SHELL_METHOD" =~ ^[1-2]$ ]]; then
+        echo "Invalid shell method. Must be 1 (Direct shell) or 2 (SSH localhost)."
+        exit 1
+      fi
+      shift
+      ;;
+    *)
+      # Unknown option handling
+      echo "Unknown option: $1"
+      echo "Usage: $0 [--help] [--assume-yes] [--api=API_KEY] [--port=PORT] [--method=METHOD]"
+      exit 1
+      ;;
+  esac
+done
+
+# Set defaults for empty values
+if [ -z "$PORT" ]; then
+  PORT=5001
+fi
+
+if [ -z "$SHELL_METHOD" ]; then
+  SHELL_METHOD=1
+fi
+
 # ANSI colour codes
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -16,10 +81,10 @@ print_yellow() { echo -e "${YELLOW}$1${NC}"; }
 print_red() { echo -e "${RED}$1${NC}"; }
 
 # Check if script is run as root and prevent that
-if [ "$EUID" -eq 0 ]; then
-  print_red "Please run this script as a regular user, NOT as root or with sudo. (for security reasons)"
-  exit 1
-fi
+#if [ "$EUID" -eq 0 ]; then
+#  print_red "Please run this script as a regular user, NOT as root or with sudo. (for security reasons)"
+#  exit 1
+#fi
 
 # Detect operating system
 detect_os() {
@@ -91,12 +156,17 @@ install_required_packages() {
     fi
     
     print_yellow "Missing packages: ${missing_packages[*]}"
-    read -p "Do you want to install the missing packages? (y/n): " -n 1 -r
-    echo
     
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_red "Required packages missing. Installation cannot continue without them."
-        exit 1
+    if [ "$ASSUME_YES" = false ]; then
+        read -p "Do you want to install the missing packages? (y/n): " -n 1 -r
+        echo
+        
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_red "Required packages missing. Installation cannot continue without them."
+            exit 1
+        fi
+    else
+        print_yellow "Auto-installing missing packages (--assume-yes flag used)..."
     fi
 
     # Install missing packages based on distro
@@ -132,10 +202,14 @@ install_required_packages() {
         *)
             print_red "Unsupported distribution. Please install the required packages manually:"
             print_yellow "git, python3, python3-venv/virtualenv, openssl"
-            read -p "Continue with installation? (y/n): " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                exit 1
+            if [ "$ASSUME_YES" = false ]; then
+                read -p "Continue with installation? (y/n): " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    exit 1
+                fi
+            else
+                print_yellow "Continuing installation (--assume-yes flag used)..."
             fi
             ;;
     esac
@@ -160,35 +234,39 @@ install_required_packages() {
 install_ssh_if_needed() {
     if ! command -v ssh >/dev/null 2>&1; then
         print_yellow "SSH client not installed, but required for the SSH localhost option."
-        read -p "Do you want to install SSH client? (y/n): " -n 1 -r
-        echo
-        
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            case $OS_FAMILY in
-                debian)
-                    sudo apt-get install -y openssh-client
-                    ;;
-                redhat)
-                    if command -v dnf >/dev/null 2>&1; then
-                        sudo dnf install -y openssh-clients
-                    else
-                        sudo yum install -y openssh-clients
-                    fi
-                    ;;
-                arch)
-                    sudo pacman -S --noconfirm openssh
-                    ;;
-                suse)
-                    sudo zypper install -y openssh
-                    ;;
-                *)
-                    print_red "Unsupported distribution. Please install SSH client manually."
-                    ;;
-            esac
+        if [ "$ASSUME_YES" = false ]; then
+            read -p "Do you want to install SSH client? (y/n): " -n 1 -r
+            echo
+            
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_red "SSH client is required for the SSH localhost option. Switching to direct shell method."
+                return 1
+            fi
         else
-            print_red "SSH client is required for the SSH localhost option. Switching to direct shell method."
-            return 1
+            print_yellow "Auto-installing SSH client (--assume-yes flag used)..."
         fi
+        
+        case $OS_FAMILY in
+            debian)
+                sudo apt-get install -y openssh-client
+                ;;
+            redhat)
+                if command -v dnf >/dev/null 2>&1; then
+                    sudo dnf install -y openssh-clients
+                else
+                    sudo yum install -y openssh-clients
+                fi
+                ;;
+            arch)
+                sudo pacman -S --noconfirm openssh
+                ;;
+            suse)
+                sudo zypper install -y openssh
+                ;;
+            *)
+                print_red "Unsupported distribution. Please install SSH client manually."
+                ;;
+        esac
     fi
     
     # Check if SSH server is running
@@ -199,39 +277,43 @@ install_ssh_if_needed() {
     
     if ! systemctl is-active --quiet $ssh_service; then
         print_yellow "SSH server is not running, but required for the SSH localhost option."
-        read -p "Do you want to install and start SSH server? (y/n): " -n 1 -r
-        echo
-        
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            case $OS_FAMILY in
-                debian)
-                    sudo apt-get install -y openssh-server
-                    sudo systemctl enable --now ssh
-                    ;;
-                redhat)
-                    if command -v dnf >/dev/null 2>&1; then
-                        sudo dnf install -y openssh-server
-                    else
-                        sudo yum install -y openssh-server
-                    fi
-                    sudo systemctl enable --now sshd
-                    ;;
-                arch)
-                    sudo pacman -S --noconfirm openssh
-                    sudo systemctl enable --now sshd
-                    ;;
-                suse)
-                    sudo zypper install -y openssh
-                    sudo systemctl enable --now sshd
-                    ;;
-                *)
-                    print_red "Unsupported distribution. Please install SSH server manually."
-                    ;;
-            esac
+        if [ "$ASSUME_YES" = false ]; then
+            read -p "Do you want to install and start SSH server? (y/n): " -n 1 -r
+            echo
+            
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_red "SSH server is required for the SSH localhost option. Switching to direct shell method."
+                return 1
+            fi
         else
-            print_red "SSH server is required for the SSH localhost option. Switching to direct shell method."
-            return 1
+            print_yellow "Auto-installing SSH server (--assume-yes flag used)..."
         fi
+        
+        case $OS_FAMILY in
+            debian)
+                sudo apt-get install -y openssh-server
+                sudo systemctl enable --now ssh
+                ;;
+            redhat)
+                if command -v dnf >/dev/null 2>&1; then
+                    sudo dnf install -y openssh-server
+                else
+                    sudo yum install -y openssh-server
+                fi
+                sudo systemctl enable --now sshd
+                ;;
+            arch)
+                sudo pacman -S --noconfirm openssh
+                sudo systemctl enable --now sshd
+                ;;
+            suse)
+                sudo zypper install -y openssh
+                sudo systemctl enable --now sshd
+                ;;
+            *)
+                print_red "Unsupported distribution. Please install SSH server manually."
+                ;;
+        esac
     fi
     
     return 0
@@ -242,26 +324,30 @@ setup_ssh_keys() {
     # Check if the user has SSH keys set up
     if [ ! -f "$USER_HOME/.ssh/id_rsa" ] && [ ! -f "$USER_HOME/.ssh/id_ed25519" ]; then
         print_yellow "No SSH keys found. You need to set up passwordless SSH for the SSH localhost option."
-        read -p "Do you want to set up SSH keys now? (y/n): " -n 1 -r
-        echo
-        
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            # Create .ssh directory if it doesn't exist
-            mkdir -p "$USER_HOME/.ssh"
-            chmod 700 "$USER_HOME/.ssh"
+        if [ "$ASSUME_YES" = false ]; then
+            read -p "Do you want to set up SSH keys now? (y/n): " -n 1 -r
+            echo
             
-            # Generate SSH key
-            ssh-keygen -t ed25519 -f "$USER_HOME/.ssh/id_ed25519" -N "" -q
-            
-            # Add to authorized_keys
-            cat "$USER_HOME/.ssh/id_ed25519.pub" >> "$USER_HOME/.ssh/authorized_keys"
-            chmod 600 "$USER_HOME/.ssh/authorized_keys"
-            
-            print_green "SSH keys set up successfully."
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_red "SSH keys are required for passwordless login. Switching to direct shell method."
+                return 1
+            fi
         else
-            print_red "SSH keys are required for passwordless login. Switching to direct shell method."
-            return 1
+            print_yellow "Auto-setting up SSH keys (--assume-yes flag used)..."
         fi
+        
+        # Create .ssh directory if it doesn't exist
+        mkdir -p "$USER_HOME/.ssh"
+        chmod 700 "$USER_HOME/.ssh"
+        
+        # Generate SSH key
+        ssh-keygen -t ed25519 -f "$USER_HOME/.ssh/id_ed25519" -N "" -q
+        
+        # Add to authorized_keys
+        cat "$USER_HOME/.ssh/id_ed25519.pub" >> "$USER_HOME/.ssh/authorized_keys"
+        chmod 600 "$USER_HOME/.ssh/authorized_keys"
+        
+        print_green "SSH keys set up successfully."
     else
         # Check if public key is in authorized_keys
         local pub_key=""
@@ -285,9 +371,14 @@ setup_ssh_keys() {
     print_yellow "Testing SSH localhost connection..."
     if ! ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no localhost "echo SSH connection successful" >/dev/null 2>&1; then
         print_red "SSH localhost connection test failed. There might be issues with passwordless login."
-        read -p "Continue anyway or switch to direct shell method? (c/d): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Cc]$ ]]; then
+        if [ "$ASSUME_YES" = false ]; then
+            read -p "Continue anyway or switch to direct shell method? (c/d): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Cc]$ ]]; then
+                return 1
+            fi
+        else
+            print_yellow "Switching to direct shell method (--assume-yes flag used)..."
             return 1
         fi
     else
@@ -303,7 +394,6 @@ USER_HOME=$(eval echo ~$CURRENT_USER)
 INSTALL_DIR="$USER_HOME/.rpi-web-shell"
 SERVICE_DIR="$USER_HOME/.config/systemd/user"
 SERVICE_FILE="$SERVICE_DIR/rpi-shell.service"
-PORT=5001
 
 print_green "========================================"
 print_green "    RPi Web Shell User Installer"
@@ -316,43 +406,86 @@ detect_os
 
 install_required_packages
 
-# Ask for custom port number
-echo ""
-read -p "Enter port number for RPi Web Shell [default: 5001]: " custom_port
-if [[ ! -z "$custom_port" ]]; then
-    if [[ "$custom_port" =~ ^[0-9]+$ ]] && [ "$custom_port" -ge 1 ] && [ "$custom_port" -le 65535 ]; then
-        PORT=$custom_port
-    else
-        print_yellow "Invalid port number. Using default port: 5001"
+# Ask for custom port number if not provided via command line and not using auto-yes
+if [ "$ASSUME_YES" = false ] && [ "$PORT_PROVIDED" = false ]; then
+    echo ""
+    read -p "Enter port number for RPi Web Shell [default: 5001]: " custom_port
+    if [[ ! -z "$custom_port" ]]; then
+        if [[ "$custom_port" =~ ^[0-9]+$ ]] && [ "$custom_port" -ge 1 ] && [ "$custom_port" -le 65535 ]; then
+            PORT=$custom_port
+        else
+            print_yellow "Invalid port number. Using default port: 5001"
+        fi
     fi
 fi
 
-echo ""
-print_yellow "Shell Connection Options:"
-echo "1) Direct shell (recommended for most users)"
-echo "2) SSH localhost (original method, the one I prefer)"
-read -p "Choose connection method [1/2, default: 1]: " shell_method
-shell_method=${shell_method:-1}
+# Display the configured port
+print_yellow "Using port: $PORT"
 
-if [ "$shell_method" = "2" ]; then
+# Ask for custom API key if not specified in command line arguments and not using auto-yes
+if [ "$ASSUME_YES" = false ] && [ -z "$API_KEY" ]; then
+    echo ""
+    read -p "Enter a custom API key or leave blank for auto-generated: " custom_api_key
+    if [[ ! -z "$custom_api_key" ]]; then
+        API_KEY=$custom_api_key
+        print_yellow "Using provided API key"
+    fi
+fi
+
+# Ask for shell method if not provided via command line and not using auto-yes
+if [ "$ASSUME_YES" = false ] && [ "$METHOD_PROVIDED" = false ]; then
+    echo ""
+    print_yellow "Shell Connection Options:"
+    echo "1) Direct shell (recommended for most users)"
+    echo "2) SSH localhost (original method)"
+    read -p "Choose connection method [1/2, default: 1]: " shell_method
+    if [[ ! -z "$shell_method" ]]; then
+        if [[ "$shell_method" =~ ^[1-2]$ ]]; then
+            SHELL_METHOD=$shell_method
+        else
+            print_yellow "Invalid selection. Using direct shell method (1)."
+        fi
+    fi
+fi
+
+# Display which shell method is being used
+if [ "$SHELL_METHOD" = "1" ]; then
+    print_yellow "Using shell connection method: Direct shell"
+else
+    print_yellow "Using shell connection method: SSH localhost"
+fi
+
+# For SSH localhost method, ensure SSH is configured properly
+if [ "$SHELL_METHOD" = "2" ]; then
     if ! install_ssh_if_needed || ! setup_ssh_keys; then
         print_yellow "Falling back to direct shell method due to SSH configuration issues."
-        shell_method=1
+        SHELL_METHOD=1
     fi
 fi
 
-API_KEY=$(openssl rand -hex 16)
+# Generate API key if not specified
+if [ -z "$API_KEY" ]; then
+    API_KEY=$(openssl rand -hex 16)
+    print_yellow "Generated random API key: $API_KEY"
+else
+    print_yellow "Using provided API key"
+fi
 
 # Check if the installation directory already exists
 if [ -d "$INSTALL_DIR" ]; then
     print_yellow "Installation directory already exists."
-    read -p "Do you want to remove the existing installation? [y/N]: " confirm
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        print_yellow "Removing existing installation..."
-        rm -rf "$INSTALL_DIR"
+    if [ "$ASSUME_YES" = false ]; then
+        read -p "Do you want to remove the existing installation? [y/N]: " confirm
+        if [[ "$confirm" =~ ^[Yy]$ ]]; then
+            print_yellow "Removing existing installation..."
+            rm -rf "$INSTALL_DIR"
+        else
+            print_red "Installation aborted."
+            exit 1
+        fi
     else
-        print_red "Installation aborted."
-        exit 1
+        print_yellow "Removing existing installation (--assume-yes flag used)..."
+        rm -rf "$INSTALL_DIR"
     fi
 fi
 
@@ -386,7 +519,7 @@ print_yellow "Setting default shell to: $USER_SHELL"
 sed -i "s|SHELL_ENV\['SHELL'\] = '/bin/bash'|SHELL_ENV['SHELL'] = '$USER_SHELL'|g" shell_server.py
 
 # Update shell command based on user's choice
-if [ "$shell_method" = "1" ]; then
+if [ "$SHELL_METHOD" = "1" ]; then
     # Direct shell method
     print_yellow "Setting up direct shell access..."
     sed -i "s|\['/bin/bash', '-c', 'cd ~ && exec /bin/bash -c \"ssh localhost\"'\]|\['$USER_SHELL'\]|g" shell_server.py
@@ -498,6 +631,14 @@ else
     echo "  rm -rf $INSTALL_DIR"
     echo "  rm -f $SERVICE_FILE"
 fi
+echo ""
+
+print_yellow "Command line flags:"
+echo "  --help         : Show help message"
+echo "  --assume-yes   : Skip all prompts and use default values"
+echo "  --api=API_KEY  : Specify a custom API key"
+echo "  --port=PORT    : Specify a custom port number (default: 5001)"
+echo "  --method=METHOD: Specify shell connection method: 1=Direct shell, 2=SSH localhost (default: 1)"
 echo ""
 
 print_green "Thank you for installing RPi Web Shell!"
