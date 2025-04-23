@@ -558,6 +558,7 @@ document.addEventListener('selectionchange', () => {
         navigator.clipboard.writeText(selection.toString())
             .then(() => {
                 console.log('Selected text copied to clipboard:', selection.toString());
+                alert('Copied to clipboard! (Press Enter)');
             })
             .catch(err => {
                 console.error('Failed to copy text to clipboard:', err);
