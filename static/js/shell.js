@@ -549,19 +549,24 @@ function logout() {
     window.location.reload();
 }
 
-// Add a selectionchange event listener to the document
+// START select-to-copy
+let debounceTimer;
 document.addEventListener('selectionchange', () => {
-    const selection = window.getSelection();
-    
-    // Check if there is any text selected
-    if (selection && selection.toString().trim().length > 0) {
-        navigator.clipboard.writeText(selection.toString())
-            .then(() => {
-                console.log('Selected text copied to clipboard:', selection.toString());
-                alert('Copied to clipboard! (Press Enter)');
-            })
-            .catch(err => {
-                console.error('Failed to copy text to clipboard:', err);
-            });
-    }
+    clearTimeout(debounceTimer); // clear the previous timer
+    debounceTimer = setTimeout(() => {
+        const selection = window.getSelection();
+        
+        // Check if there is any text selected
+        if (selection && selection.toString().trim().length > 0) {
+            navigator.clipboard.writeText(selection.toString())
+                .then(() => {
+                    console.log('Selected text copied to clipboard:', selection.toString());
+                    alert('Copied to clipboard! (Press Enter)');
+                })
+                .catch(err => {
+                    console.error('Failed to copy text to clipboard:', err);
+                });
+        }
+    }, 250); // set debounce delay to 250ms
 });
+// END select-to-copy
