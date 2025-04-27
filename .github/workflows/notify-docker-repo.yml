@@ -27,7 +27,7 @@ jobs:
           echo "Triggered at: $(date)" >> ./trigger/info.txt
           
       - name: Upload trigger artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: trigger-info
           path: ./trigger/
