@@ -230,7 +230,7 @@ function createNewTab(title = null) {
             foreground: '#f8f8f8',
             cursor: '#ffffff'
         },
-        fontFamily: 'Courier New, monospace',
+        fontFamily: 'Fira Code, Courier New, monospace',
         fontSize: 14,
         allowProposedApi: true,
         convertEol: true,
