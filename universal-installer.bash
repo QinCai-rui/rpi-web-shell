@@ -543,9 +543,10 @@ sed -i "s/font-family: 'Fira Code'/font-family: '$SELECTED_FONT'/g" "$CSS_FILE"
 HTML_FILE="$INSTALL_DIR/templates/shell.html"
 GOOGLE_FONTS_URL="https://fonts.googleapis.com/css2?family=$(echo $SELECTED_FONT | sed 's/ /+/g')&display=swap"
 
-# Remove any existing Google Fonts <link> tag to avoid duplication
+# Remove existing Google Fonts <link> tags
 sed -i '/<link href="https:\/\/fonts.googleapis.com\/css2.*" rel="stylesheet">/d' "$HTML_FILE"
-# Insert the new Google Fonts <link> tag at the correct position
+
+# Insert the new <link> tag before </head>
 sed -i "s|</head>|<link href=\"$GOOGLE_FONTS_URL\" rel=\"stylesheet\">\n</head>|g" "$HTML_FILE"
 
 # Update the JavaScript file to reflect the font selection
