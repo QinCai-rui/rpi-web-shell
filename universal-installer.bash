@@ -536,16 +536,16 @@ else
 fi
 
 # Apply the selected font to the CSS file
-CSS_FILE="static/css/shell.css"
+CSS_FILE="$INSTALL_DIR/static/css/shell.css"
 sed -i "s/font-family: 'Fira Code'/font-family: '$SELECTED_FONT'/g" "$CSS_FILE"
 
 # Update HTML to include the selected font from Google Fonts
-HTML_FILE="templates/shell.html"
+HTML_FILE="$INSTALL_DIR/templates/shell.html"
 GOOGLE_FONTS_URL="https://fonts.googleapis.com/css2?family=$(echo $SELECTED_FONT | sed 's/ /+/g')&display=swap"
 sed -i "s|<link href=\"https://fonts.googleapis.com/css2.*\" rel=\"stylesheet\">|<link href=\"$GOOGLE_FONTS_URL\" rel=\"stylesheet\">|g" "$HTML_FILE"
 
 # Update the JavaScript file to reflect the font selection
-JS_FILE="static/js/shell.js"
+JS_FILE="$INSTALL_DIR/static/js/shell.js"
 sed -i "s/fontFamily: 'Fira Code, Courier New, monospace'/fontFamily: '$SELECTED_FONT, Courier New, monospace'/g" "$JS_FILE"
 
 echo "Font selection applied successfully!"
