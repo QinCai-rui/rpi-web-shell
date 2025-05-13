@@ -17,7 +17,7 @@ FONT_PROVIDED=false
 while [[ $# -gt 0 ]]; do
   case $1 in
     --help)
-      echo "Usage: $0 [--assume-yes] [--api=API_KEY] [--port=PORT] [--method=METHOD]"
+      echo "Usage: $0 [--assume-yes] [--api=API_KEY] [--port=PORT] [--method=METHOD] [--font='FONT-NAME']"
       echo "Options:"
       echo "  --help         Show this help message"
       echo "  --assume-yes   Automatically answer 'yes' to prompts"
@@ -53,10 +53,15 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
+    --font=*)
+      SELECTED_FONT="${1#*=}"
+      FONT_PROVIDED=true
+      shift
+      ;;
     *)
       # Unknown option handling
       echo "Unknown option: $1"
-      echo "Usage: $0 [--help] [--assume-yes] [--api=API_KEY] [--port=PORT] [--method=METHOD] [--font='FONT-NAME]"
+      echo "Usage: $0 [--help] [--assume-yes] [--api=API_KEY] [--port=PORT] [--method=METHOD] [--font='FONT-NAME']"
       exit 1
       ;;
   esac
@@ -498,16 +503,6 @@ git clone https://github.com/QinCai-rui/rpi-web-shell.git "$INSTALL_DIR"
 # Define available fonts
 AVAILABLE_FONTS=("Fira Code" "JetBrains Mono" "Source Code Pro" "Ubuntu Mono")
 
-# Parse command-line arguments
-for arg in "$@"; do
-    case $arg in
-        --font=*)
-        SELECTED_FONT="${arg#*=}"
-        FONT_PROVIDED=true
-        ;;
-    esac
-done
-
 # Validate the provided font
 if [ "$FONT_PROVIDED" = true ]; then
     if [[ ! " ${AVAILABLE_FONTS[@]} " =~ " ${SELECTED_FONT} " ]]; then
@@ -729,11 +724,12 @@ fi
 echo ""
 
 print_yellow "Command line flags:"
-echo "  --help         : Show help message"
-echo "  --assume-yes   : Skip all prompts and use default values"
-echo "  --api=API_KEY  : Specify a custom API key"
-echo "  --port=PORT    : Specify a custom port number (default: 5001)"
-echo "  --method=METHOD: Specify shell connection method: 1=Direct shell, 2=SSH localhost (default: 1)"
+echo "  --help             : Show help message"
+echo "  --assume-yes       : Skip all prompts and use default values"
+echo "  --api=API_KEY      : Specify a custom API key"
+echo "  --port=PORT        : Specify a custom port number (default: 5001)"
+echo "  --method=METHOD    : Specify shell connection method: 1=Direct shell, 2=SSH localhost (default: 1)"
+echo "  --font='FONT-NAME' : Specify a custom font name. Choose from \"Fira Code\" \"JetBrains Mono\" \"Source Code Pro\" \"Ubuntu Mono\""
 echo ""
 
 print_green "Thank you for installing RPi Web Shell!"
