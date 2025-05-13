@@ -11,6 +11,7 @@ PORT=""        # Empty means use default
 SHELL_METHOD="" # Empty means use default
 PORT_PROVIDED=false
 METHOD_PROVIDED=false
+FONT_PROVIDED=false
 
 # Process command line arguments
 while [[ $# -gt 0 ]]; do
@@ -23,6 +24,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --api=API_KEY  Specify a custom API key"
       echo "  --port=PORT    Specify a custom port number (default: 5001)"
       echo "  --method=METHOD Specify shell connection method: 1=Direct shell, 2=SSH localhost (default: 1)"
+      echo "  --font='FONT-NAME'  Specify a custom font name. Choose from \"Fira Code\" \"JetBrains Mono\" \"Source Code Pro\" \"Ubuntu Mono\""
       exit 0
       ;;
     --assume-yes)
@@ -54,7 +56,7 @@ while [[ $# -gt 0 ]]; do
     *)
       # Unknown option handling
       echo "Unknown option: $1"
-      echo "Usage: $0 [--help] [--assume-yes] [--api=API_KEY] [--port=PORT] [--method=METHOD]"
+      echo "Usage: $0 [--help] [--assume-yes] [--api=API_KEY] [--port=PORT] [--method=METHOD] [--font='FONT-NAME]"
       exit 1
       ;;
   esac
@@ -497,7 +499,6 @@ git clone https://github.com/QinCai-rui/rpi-web-shell.git "$INSTALL_DIR"
 AVAILABLE_FONTS=("Fira Code" "JetBrains Mono" "Source Code Pro" "Ubuntu Mono")
 
 # Parse command-line arguments
-FONT_PROVIDED=false
 for arg in "$@"; do
     case $arg in
         --font=*)
