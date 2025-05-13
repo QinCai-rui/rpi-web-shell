@@ -547,7 +547,7 @@ sed -i "s|<link href=\"https://fonts.googleapis.com/css2.*\" rel=\"stylesheet\">
 
 # Update the JavaScript file to reflect the font selection
 JS_FILE="$INSTALL_DIR/static/js/shell.js"
-sed -i "s/font-family: 'Fira Code'/font-family: '$SELECTED_FONT'/g" "$JS_FILE"
+sed -i "s/fontFamily: 'Fira Code'/fontFamily: '$SELECTED_FONT'/g" "$JS_FILE"
 
 echo "Font selection applied successfully!"
 # Font section
