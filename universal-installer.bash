@@ -539,21 +539,50 @@ fi
 CSS_FILE="$INSTALL_DIR/static/css/shell.css"
 sed -i "s/font-family: 'Fira Code'/font-family: '$SELECTED_FONT'/g" "$CSS_FILE"
 
-# Update HTML to include the selected font from Google Fonts
 HTML_FILE="$INSTALL_DIR/templates/shell.html"
-GOOGLE_FONTS_URL="https://fonts.googleapis.com/css2?family=$(echo $SELECTED_FONT | sed 's/ /+/g')&display=swap"
 
-# Remove existing Google Fonts <link> tags
-sed -i '/<link href="https:\/\/fonts.googleapis.com\/css2.*" rel="stylesheet">/d' "$HTML_FILE"
+# Define function to get Google Fonts URL based on selected font
+get_google_fonts_url() {
+    local font_name="$1"
+    local url=""
+    
+    case "$font_name" in
+        "Fira Code")
+            url="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap"
+            ;;
+        "JetBrains Mono")
+            url="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap"
+            ;;
+        "Source Code Pro")
+            url="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap"
+            ;;
+        "Ubuntu Mono")
+            url="https://fonts.googleapis.com/css2?family=Ubuntu+Mono&display=swap"
+            ;;
+        *)
+            # Default to Fira Code
+            url="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap"
+            ;;
+    esac
+    
+    echo "$url"
+}
+FONTS_URL=$(get_google_fonts_url "$SELECTED_FONT")
 
-# Insert the new <link> tag before </head>
-sed -i "s|</head>|<link href=\"$GOOGLE_FONTS_URL\" rel=\"stylesheet\">\n</head>|g" "$HTML_FILE"
+# Remove existing Google Fonts links
+sed -i '/fonts.googleapis.com/d' "$HTML_FILE"
+
+# Properly escape the URL for sed
+ESCAPED_URL=$(echo "$FONTS_URL" | sed 's/&/\\&/g')
+
+# Insert the new font link after the shell.css stylesheet
+sed -i '/static\/css\/shell.css/a <link href="'"$ESCAPED_URL"'" rel="stylesheet">' "$HTML_FILE"
 
 # Update the JavaScript file to reflect the font selection
 JS_FILE="$INSTALL_DIR/static/js/shell.js"
 sed -i "s/fontFamily: 'Fira Code, Courier New, monospace'/fontFamily: '$SELECTED_FONT'/g" "$JS_FILE"
 
-echo "Font selection applied successfully!"
+echo "Font selection applied successfully! Using: $SELECTED_FONT with URL: $FONTS_URL"
 # Font section
 ##########
 
