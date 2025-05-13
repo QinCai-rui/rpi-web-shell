@@ -432,67 +432,6 @@ if [ "$ASSUME_YES" = false ] && [ -z "$API_KEY" ]; then
     fi
 fi
 
-##########
-# Font section
-# Define available fonts
-AVAILABLE_FONTS=("Fira Code" "JetBrains Mono" "Source Code Pro" "Ubuntu Mono")
-
-# Parse command-line arguments
-FONT_PROVIDED=false
-for arg in "$@"; do
-    case $arg in
-        --font=*)
-        SELECTED_FONT="${arg#*=}"
-        FONT_PROVIDED=true
-        ;;
-    esac
-done
-
-# Validate the provided font
-if [ "$FONT_PROVIDED" = true ]; then
-    if [[ ! " ${AVAILABLE_FONTS[@]} " =~ " ${SELECTED_FONT} " ]]; then
-        echo "Invalid font: $SELECTED_FONT. Falling back to 'Fira Code'."
-        SELECTED_FONT="Fira Code"
-    else
-        echo "Using font provided via --font flag: $SELECTED_FONT"
-    fi
-elif [ "$ASSUME_YES" = false ]; then
-    # Interactive font selection
-    echo -e "\nSelect a font for the RPi Web Shell:"
-    for i in "${!AVAILABLE_FONTS[@]}"; do
-        echo "$((i+1))) ${AVAILABLE_FONTS[$i]}"
-    done
-    read -p "Enter the number of your choice (1-${#AVAILABLE_FONTS[@]}): " font_choice
-    if [[ "$font_choice" =~ ^[0-9]+$ ]] && (( font_choice >= 1 && font_choice <= ${#AVAILABLE_FONTS[@]} )); then
-        SELECTED_FONT="${AVAILABLE_FONTS[$((font_choice-1))]}"
-        echo "You selected: $SELECTED_FONT"
-    else
-        echo "Invalid choice. Defaulting to 'Fira Code'."
-        SELECTED_FONT="Fira Code"
-    fi
-else
-    # Default font in non-interactive mode
-    SELECTED_FONT="Fira Code"
-    echo "Assume-yes flag is set. Defaulting font to 'Fira Code'."
-fi
-
-# Apply the selected font to the CSS file
-CSS_FILE="static/css/shell.css"
-sed -i "s/font-family: 'Fira Code'/font-family: '$SELECTED_FONT'/g" "$CSS_FILE"
-
-# Update HTML to include the selected font from Google Fonts
-HTML_FILE="templates/shell.html"
-GOOGLE_FONTS_URL="https://fonts.googleapis.com/css2?family=$(echo $SELECTED_FONT | sed 's/ /+/g')&display=swap"
-sed -i "s|<link href=\"https://fonts.googleapis.com/css2.*\" rel=\"stylesheet\">|<link href=\"$GOOGLE_FONTS_URL\" rel=\"stylesheet\">|g" "$HTML_FILE"
-
-# Update the JavaScript file to reflect the font selection
-JS_FILE="static/js/shell.js"
-sed -i "s/font-family: 'Fira Code'/font-family: '$SELECTED_FONT'/g" "$JS_FILE"
-
-echo "Font selection applied successfully!"
-# Font section
-##########
-
 # Ask for shell method if not provided via command line and not using auto-yes
 if [ "$ASSUME_YES" = false ] && [ "$METHOD_PROVIDED" = false ]; then
     echo ""
@@ -552,6 +491,67 @@ fi
 
 print_yellow "Cloning the RPi Web Shell repository..."
 git clone https://github.com/QinCai-rui/rpi-web-shell.git "$INSTALL_DIR"
+
+##########
+# Font section
+# Define available fonts
+AVAILABLE_FONTS=("Fira Code" "JetBrains Mono" "Source Code Pro" "Ubuntu Mono")
+
+# Parse command-line arguments
+FONT_PROVIDED=false
+for arg in "$@"; do
+    case $arg in
+        --font=*)
+        SELECTED_FONT="${arg#*=}"
+        FONT_PROVIDED=true
+        ;;
+    esac
+done
+
+# Validate the provided font
+if [ "$FONT_PROVIDED" = true ]; then
+    if [[ ! " ${AVAILABLE_FONTS[@]} " =~ " ${SELECTED_FONT} " ]]; then
+        echo "Invalid font: $SELECTED_FONT. Falling back to 'Fira Code'."
+        SELECTED_FONT="Fira Code"
+    else
+        echo "Using font provided via --font flag: $SELECTED_FONT"
+    fi
+elif [ "$ASSUME_YES" = false ]; then
+    # Interactive font selection
+    echo -e "\nSelect a font for the RPi Web Shell:"
+    for i in "${!AVAILABLE_FONTS[@]}"; do
+        echo "$((i+1))) ${AVAILABLE_FONTS[$i]}"
+    done
+    read -p "Enter the number of your choice (1-${#AVAILABLE_FONTS[@]}): " font_choice
+    if [[ "$font_choice" =~ ^[0-9]+$ ]] && (( font_choice >= 1 && font_choice <= ${#AVAILABLE_FONTS[@]} )); then
+        SELECTED_FONT="${AVAILABLE_FONTS[$((font_choice-1))]}"
+        echo "You selected: $SELECTED_FONT"
+    else
+        echo "Invalid choice. Defaulting to 'Fira Code'."
+        SELECTED_FONT="Fira Code"
+    fi
+else
+    # Default font in non-interactive mode
+    SELECTED_FONT="Fira Code"
+    echo "Assume-yes flag is set. Defaulting font to 'Fira Code'."
+fi
+
+# Apply the selected font to the CSS file
+CSS_FILE="$INSTALL_DIR/static/css/shell.css"
+sed -i "s/font-family: 'Fira Code'/font-family: '$SELECTED_FONT'/g" "$CSS_FILE"
+
+# Update HTML to include the selected font from Google Fonts
+HTML_FILE="$INSTALL_DIR/templates/shell.html"
+GOOGLE_FONTS_URL="https://fonts.googleapis.com/css2?family=$(echo $SELECTED_FONT | sed 's/ /+/g')&display=swap"
+sed -i "s|<link href=\"https://fonts.googleapis.com/css2.*\" rel=\"stylesheet\">|<link href=\"$GOOGLE_FONTS_URL\" rel=\"stylesheet\">|g" "$HTML_FILE"
+
+# Update the JavaScript file to reflect the font selection
+JS_FILE="$INSTALL_DIR/static/js/shell.js"
+sed -i "s/font-family: 'Fira Code'/font-family: '$SELECTED_FONT'/g" "$JS_FILE"
+
+echo "Font selection applied successfully!"
+# Font section
+##########
 
 print_yellow "Setting up Python virtual environment..."
 cd "$INSTALL_DIR"
