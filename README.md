@@ -12,6 +12,7 @@ A lightweight web-based terminal interface for servers that provides secure shel
 - Responsive design that works on desktop and mobile devices
 - Compatible with all terminal commands and CLI applications
 - Multi-tabbed
+- Font selection during installation process
 
 ## Requirements
 
@@ -27,9 +28,15 @@ bash <(curl -sSL https://raw.githubusercontent.com/QinCai-rui/rpi-web-shell/refs
 
 And then follow the instructions.
 
+To get help:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/QinCai-rui/rpi-web-shell/refs/heads/main/universal-installer.bash) --help
+```
+
 ## Usage
 
-1. Start the server using instructions above
+1. Start the server using the instructions above
 2. Open a browser and navigate to `http://your-server-ip:5001`
 3. Enter your API key when prompted
 4. Use the terminal as you would a regular SSH session
